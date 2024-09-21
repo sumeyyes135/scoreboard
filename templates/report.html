@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapor Görselleştirme</title>
+    <style>
+        .squad {
+            padding: 10px;
+            border: 1px solid #ccc;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #f9f9f9;
+        }
+
+        .squad .details {
+            display: none; /* Başlangıçta gizli */
+            padding-left: 20px;
+        }
+
+        .top-three {
+            color: gold;
+            font-weight: bold;
+        }
+
+        .toggle-btn {
+            font-size: 12px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="report-title">Report Result_</h1> <!-- Başlık -->
+    <div id="squad-list"></div>
+
+    <script>
+        // Raporu fetch API ile alıyoruz
+        fetch('http://127.0.0.1:5000/latest-report', {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            const squads = data.squads;
+            const reportDate = data.report_date;  // Rapor tarihini alıyoruz
+            const top3 = data.top_3_squads.map(s => s.squad_name); // İlk 3 squad'ın isimlerini alıyoruz
+
+            // Başlığı rapor tarihine göre güncelliyoruz
+            const reportTitle = document.getElementById('report-title');
+            reportTitle.textContent = `Report Result_${reportDate}`;
+
+            const squadListDiv = document.getElementById('squad-list');
+
+            // Tüm squad'ları sıralıyoruz
+            squads.forEach(squad => {
+                const squadDiv = document.createElement('div');
+                squadDiv.className = 'squad';
+
+                // Squad bilgilerini yazdırıyoruz
+                squadDiv.innerHTML = `
+                    <strong>${squad.squad_name}</strong> - Score: ${squad.total_score.toFixed(2)}
+                    ${top3.includes(squad.squad_name) ? '<span class="top-three">⭐</span>' : ''}
+                    <button class="toggle-btn">Toggle Details</button>
+                    <div class="details">
+                        <p><strong>Servis Sayısı:</strong> ${squad.services_evaluated}</p>
+                        <p><strong>Servisler:</strong> ${squad.services.join(', ')}</p> <!-- Servis isimlerini gösteriyoruz -->
+                        <p><strong>Fortify Score:</strong> ${squad.metrics.fortify_score}</p>
+                        <p><strong>Defect Score:</strong> ${squad.metrics.defect_score}</p>
+                        <p><strong>RFC/Deployment Score:</strong> ${squad.metrics.rfc_deployment_score}</p>
+                        <p><strong>Alarm Score:</strong> ${squad.metrics.alarm_score}</p>
+                        <p><strong>SonarQube Score:</strong> ${squad.metrics.sonarqube_score}</p>
+                        <p><strong>Performance Metrics:</strong> ${squad.metrics.performance_metrics}</p>
+                    </div>
+                `;
+
+                // Toggle yapısı (Detayları açıp kapatma)
+                const toggleBtn = squadDiv.querySelector('.toggle-btn');
+                const detailsDiv = squadDiv.querySelector('.details');
+                toggleBtn.addEventListener('click', () => {
+                    detailsDiv.style.display = detailsDiv.style.display === 'none' ? 'block' : 'none';
+                });
+
+                squadListDiv.appendChild(squadDiv); // Her squad'ı listeye ekliyoruz
+            });
+        })
+        .catch(error => {
+            console.error('Rapor verisini alırken hata oluştu:', error);
+        });
+    </script>
+</body>
+</html>
