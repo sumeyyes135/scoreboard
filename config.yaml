@@ -1,0 +1,14 @@
+database:
+  endpoint: "couchbases://cb.ekkz0hb5oum6mphw.cloud.couchbase.com"
+  username: "scoreboard"
+  password: "Scoreboard135!"
+  bucket_name: "scoreboard"
+  scope: "scoreboard"
+
+metrics_weights:
+  fortify_weight: 0.20
+  defect_weight: 0.10
+  rfc_deployment_weight: 0.05
+  alarm_weight: 0.10
+  sonarqube_weight: 0.20
+  performance_weight: 0.15

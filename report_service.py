@@ -9,11 +9,15 @@ from metrics_calculations import (
 )
 from couchbase_connection import connect_to_couchbase
 from datetime import datetime
+from config_loader import load_config
+
+# Config dosyasını yüklüyoruz
+config = load_config()
 
 # Couchbase bağlantılarını ayarlıyoruz
 cluster, bucket = connect_to_couchbase()
-services_collection = bucket.scope("scoreboard").collection("services")
-reports_collection = bucket.scope("scoreboard").collection("reports")
+services_collection = bucket.scope(config['database']['scope']).collection("services")
+reports_collection = bucket.scope(config['database']['scope']).collection("reports")
 
 # Tam tarih ve saati (gün/ay/yıl_saat/dakika/saniye) formatında döndüren fonksiyon
 def get_current_timestamp():
@@ -60,6 +64,7 @@ def find_latest_report_id():
 def generate_report(new_report=False):
     # Tam zamanlı rapor ID'sini (gün/ay/yıl_saat/dakika/saniye) oluşturuyoruz
     report_id = f"report_{get_current_timestamp()}"
+    config = load_config()
 
     if not new_report:
         try:
@@ -113,7 +118,7 @@ def generate_report(new_report=False):
 
     print(f"Oluşturulan Squads: {squads}")
 
-    sorted_squads = calculate_ranks_and_scores(squads)
+    sorted_squads = calculate_ranks_and_scores(squads, config)
     full_report_id = f"report_{get_current_timestamp()}"  # Dakika ve saniye ile tam rapor ID'si
 
     report_data = {
@@ -131,26 +136,36 @@ def generate_report(new_report=False):
         return {"error": str(e)}
 
 # Rank ve toplam puan hesaplama işlemi
-def calculate_ranks_and_scores(squads):
+def calculate_ranks_and_scores(squads, config):
     sorted_squads = []
     for squad_name, data in squads.items():
-        total_score = (
-            (data["metrics"]["fortify_score"] / data["services_evaluated"]) * 0.20 +
-            (data["metrics"]["defect_score"] / data["services_evaluated"]) * 0.10 +
-            (data["metrics"]["rfc_deployment_score"] / data["services_evaluated"]) * 0.05 +
-            (data["metrics"]["alarm_score"] / data["services_evaluated"]) * 0.10 +
-            (data["metrics"]["sonarqube_score"] / data["services_evaluated"]) * 0.20 +
-            (data["metrics"]["performance_metrics"] / data["services_evaluated"]) * 0.15 +
-            data["extra_score"]["total"]
-        )
-        sorted_squads.append({
-            "squad_name": squad_name,
-            "total_score": total_score,
-            "services": data["services"],
-            "services_evaluated": data["services_evaluated"],
-            "metrics": data["metrics"],
-            "extra_score": data["extra_score"]
-        })
+        # Squad başına toplam puanı hesaplıyoruz
+        try:
+            total_score = (
+                (data["metrics"]["fortify_score"] / data["services_evaluated"]) * config['metrics_weights']['fortify_weight'] +
+                (data["metrics"]["defect_score"] / data["services_evaluated"]) * config['metrics_weights']['defect_weight'] +
+                (data["metrics"]["rfc_deployment_score"] / data["services_evaluated"]) * config['metrics_weights']['rfc_deployment_weight'] +
+                (data["metrics"]["alarm_score"] / data["services_evaluated"]) * config['metrics_weights']['alarm_weight'] +
+                (data["metrics"]["sonarqube_score"] / data["services_evaluated"]) * config['metrics_weights']['sonarqube_weight'] +
+                (data["metrics"]["performance_metrics"] / data["services_evaluated"]) * config['metrics_weights']['performance_weight'] +
+                data["extra_score"]["total"]
+            )
 
+            # Hesaplanan skor ile squad'ı ekliyoruz
+            sorted_squads.append({
+                "squad_name": squad_name,
+                "total_score": total_score,
+                "services": data["services"],
+                "services_evaluated": data["services_evaluated"],
+                "metrics": data["metrics"],
+                "extra_score": data["extra_score"]
+            })
+        except KeyError as e:
+            print(f"Veri eksikliği nedeniyle {squad_name} için hesaplama yapılamadı: {e}")
+        except ZeroDivisionError:
+            print(f"'{squad_name}' için 'services_evaluated' sıfır olamaz.")
+
+    # Squad'ları puanlarına göre sıralıyoruz
     sorted_squads.sort(key=lambda x: x["total_score"], reverse=True)
+
     return sorted_squads
