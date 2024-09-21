@@ -69,6 +69,8 @@ Scoreboard is an application that collects metrics from microservices owned by t
    /latest-report [GET]: Returns the most recent report created within the same hour.
    /visualize-report [GET]: Visualizes the reports in the web interface.
    ```
+   ![Alt text](./images/generate-report.png)
+   ![Alt text](./images/web-report.png)
 3. **Testing with Postman:**
 
    ```
